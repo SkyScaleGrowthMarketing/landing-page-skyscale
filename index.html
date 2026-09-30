@@ -1648,55 +1648,69 @@
         });
 
 
-        // Popup de captação de lead (GoHighLevel) — só é criado no DOM
-        // quando a pessoa clica em algum botão de aplicação/CTA.
-        // Isso garante que o iframe do formulário não carrega sozinho.
-        // A cada clique, removemos qualquer instância anterior do popup
-        // (a que o GHL já pode ter fechado/escondido) e criamos uma nova,
-        // para o formulário SEMPRE abrir de novo, mesmo depois de fechado.
+        // Popup de captação de lead (GoHighLevel).
+        // O modal (fundo escuro + caixa branca + botão de fechar) é feito
+        // por nós mesmos, com CSS nosso — não depende mais do popup pronto
+        // do GHL (que era instável: às vezes abria com zoom/tamanho errado,
+        // às vezes nem abria, principalmente em navegador de dentro de
+        // apps como Instagram). O iframe do formulário é criado só UMA vez
+        // (não é destruído/recriado a cada clique) e nós só escondemos ou
+        // mostramos a caixa toda via CSS — por isso ele sempre abre de novo,
+        // mesmo depois de fechado várias vezes.
         (function () {
-            function loadLeadForm() {
-                var oldIframe = document.getElementById('popup-W3jyJWFAQOulxaT5NFrF');
-                if (oldIframe) oldIframe.remove();
-                var oldScript = document.querySelector('script[src="https://link.msgsndr.com/js/form_embed.js"]');
-                if (oldScript) oldScript.remove();
-                var oldOverlay = document.querySelector('.lc-popup-overlay, .n8n-chat-widget-overlay, [id^="popup-overlay"]');
-                if (oldOverlay) oldOverlay.remove();
+            var FORM_ID = "W3jyJWFAQOulxaT5NFrF";
 
-                var iframe = document.createElement('iframe');
-                iframe.src = "https://api.leadconnectorhq.com/widget/form/W3jyJWFAQOulxaT5NFrF";
-                iframe.style.display = "none";
-                iframe.style.width = "100%";
-                iframe.style.height = "100%";
-                iframe.style.border = "none";
-                iframe.style.borderRadius = "8px";
-                iframe.id = "popup-W3jyJWFAQOulxaT5NFrF";
-                iframe.setAttribute("data-layout", "{'id':'POPUP'}");
-                iframe.setAttribute("data-trigger-type", "alwaysShow");
-                iframe.setAttribute("data-trigger-value", "");
-                iframe.setAttribute("data-activation-type", "alwaysActivated");
-                iframe.setAttribute("data-activation-value", "");
-                iframe.setAttribute("data-deactivation-type", "neverDeactivate");
-                iframe.setAttribute("data-deactivation-value", "");
-                iframe.setAttribute("data-form-name", "Form 4");
-                iframe.setAttribute("data-height", "594");
-                iframe.setAttribute("data-layout-iframe-id", "popup-W3jyJWFAQOulxaT5NFrF");
-                iframe.setAttribute("data-form-id", "W3jyJWFAQOulxaT5NFrF");
-                iframe.setAttribute("data-cookie-consent", "true");
-                iframe.setAttribute("data-cookie-consent-provider", "auto");
-                iframe.title = "Form 4";
-                iframe.setAttribute("data-modal-height", "500");
-                document.body.appendChild(iframe);
+            var style = document.createElement('style');
+            style.textContent = [
+                '.lp-lead-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);',
+                'z-index:99999;align-items:center;justify-content:center;padding:16px;}',
+                '.lp-lead-modal-overlay.is-open{display:flex;}',
+                '.lp-lead-modal-box{position:relative;background:#fff;border-radius:14px;width:100%;',
+                'max-width:480px;max-height:90vh;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.5);}',
+                '.lp-lead-modal-box iframe{display:block;width:100%;height:80vh;max-height:640px;border:none;',
+                '-webkit-overflow-scrolling:touch;}',
+                '.lp-lead-modal-close{position:absolute;top:8px;right:8px;width:34px;height:34px;',
+                'border-radius:50%;background:rgba(0,0,0,0.08);border:none;font-size:22px;line-height:1;',
+                'cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;',
+                'color:#111;}'
+            ].join('');
+            document.head.appendChild(style);
 
-                var script = document.createElement('script');
-                script.src = "https://link.msgsndr.com/js/form_embed.js";
-                document.body.appendChild(script);
+            var overlay = document.createElement('div');
+            overlay.className = 'lp-lead-modal-overlay';
+            overlay.innerHTML =
+                '<div class="lp-lead-modal-box">' +
+                '<button type="button" class="lp-lead-modal-close" aria-label="Fechar">&times;</button>' +
+                '<iframe src="about:blank" data-src="https://api.leadconnectorhq.com/widget/form/' + FORM_ID + '" ' +
+                'title="Aplique para uma consultoria gratuita"></iframe>' +
+                '</div>';
+            document.body.appendChild(overlay);
+
+            var iframeEl = overlay.querySelector('iframe');
+            var loaded = false;
+
+            function openModal() {
+                if (!loaded) {
+                    iframeEl.src = iframeEl.getAttribute('data-src');
+                    loaded = true;
+                }
+                overlay.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
             }
+            function closeModal() {
+                overlay.classList.remove('is-open');
+                document.body.style.overflow = '';
+            }
+
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) closeModal();
+            });
+            overlay.querySelector('.lp-lead-modal-close').addEventListener('click', closeModal);
 
             document.querySelectorAll('.js-open-lead-popup').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.preventDefault();
-                    loadLeadForm();
+                    openModal();
                 });
             });
         })();
